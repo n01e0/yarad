@@ -1,0 +1,11 @@
+# log file path
+log_file: /var/log/yarad
+# log level [critical|error|info]
+log_level: critical
+local_socket: /run/yarad.ctl
+local_socket_group: yarad
+local_socket_mode: 666
+rules_dir: /etc/yarad/rules
+user: yarad
+auto_recompile_rules: true
+
