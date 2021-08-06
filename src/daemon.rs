@@ -1,7 +1,6 @@
 use daemonize::{User, Daemonize};
 use log::info;
 use std::fs::{create_dir, OpenOptions};
-use std::io::{self, Write};
 use std::path::Path;
 use nix::unistd::geteuid;
 
@@ -21,7 +20,7 @@ pub fn daemonize() -> Result<()> {
         .write(true)
         .to_owned();
 
-    let workind_directory = if !Path::new("/var/run/yarad").exists() {
+    let workind_directory = if Path::new("/var/run/yarad").exists() {
         "/var/run/yarad"
     } else {
         create_dir("/var/run/yarad")?;
@@ -41,6 +40,8 @@ pub fn daemonize() -> Result<()> {
             "/var/run/yarad/yarad.pid",
         )
     };
+
+    open_opts.open(pid_file)?;
 
     let daemonize = Daemonize::new()
         .user(User::Name(username.clone()))
