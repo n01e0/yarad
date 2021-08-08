@@ -60,6 +60,13 @@ impl From<serde_yaml::Error> for Error {
     }
 }
 
+impl From<yara::errors::YaraError> for Error {
+    fn from(err: yara::errors::YaraError) -> Self {
+        Self::Yara(err)
+    }
+
+}
+
 impl From<yara::errors::Error> for Error {
     fn from(err: yara::errors::Error) -> Self {
         match err {

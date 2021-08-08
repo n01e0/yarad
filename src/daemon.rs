@@ -8,7 +8,7 @@ use crate::error::{Result, Error};
 use crate::config::Config;
 
 pub fn daemonize(conf: &Config) -> Result<()> {
-    let mut username = conf.user;
+    let username = &conf.user;
     let as_su = geteuid().is_root();
 
     if &username[..] == "root"  && !as_su {
@@ -24,7 +24,7 @@ pub fn daemonize(conf: &Config) -> Result<()> {
     let working_directory = if Path::new(&conf.working_dir).exists() {
         &conf.working_dir
     } else {
-        create_dir(conf.working_dir)?;
+        create_dir(&conf.working_dir)?;
         &conf.working_dir
     };
 
