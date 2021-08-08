@@ -1,0 +1,12 @@
+name: "yarad"
+version: 0.1.0
+author: "n01e0 <reoshiseki@gmail.com>"
+about: "yara daemon"
+
+args:
+  - config_file:
+      required: true
+      help: "load config from file"
+      takes_value: true
+      long: config
+      max_values: 1

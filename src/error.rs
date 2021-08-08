@@ -1,6 +1,7 @@
 use daemonize::DaemonizeError;
 use std::{io, fmt, any::Any};
 use yara::errors;
+use log::ParseLevelError;
 
 #[derive(Debug)]
 pub enum Error {
@@ -21,6 +22,7 @@ pub enum Error {
     Yara(errors::YaraError),
     ThreadError { error: Box<dyn Any + Send + 'static> },
     UserNameError { reason: String },
+    ParseLogLevelError,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -68,6 +70,12 @@ impl From<yara::errors::Error> for Error {
     }
 }
 
+impl From<ParseLevelError> for Error {
+    fn from(_: ParseLevelError) -> Self {
+        Self::ParseLogLevelError
+    }
+}
+
 impl From<Box<dyn Any + Send + 'static>> for Error {
     fn from(error: Box<dyn Any + Send + 'static>) -> Self {
         Self::ThreadError { error }
@@ -89,6 +97,7 @@ impl fmt::Display for Error {
             Yara(e) => write!(f, "Yara error by {}", e),
             ThreadError{ error: _ } => write!(f, "Error in thread"),
             UserNameError{ reason } => write!(f, "Can't get username by {}", reason),
+            ParseLogLevelError => write!(f, "Can't parse log_level"),
         }
     }
 }

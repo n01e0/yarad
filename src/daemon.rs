@@ -4,15 +4,16 @@ use std::fs::{create_dir, OpenOptions};
 use std::path::Path;
 use nix::unistd::geteuid;
 
-use crate::error::Result;
+use crate::error::{Result, Error};
+use crate::config::Config;
 
-pub fn daemonize() -> Result<()> {
+pub fn daemonize(conf: &Config) -> Result<()> {
+    let mut username = conf.user;
     let as_su = geteuid().is_root();
-    let username = if as_su {
-        "root".into()
-    } else {
-        username::get_user_name().unwrap_or("nobody".into())
-    };
+
+    if &username[..] == "root"  && !as_su {
+            return Err(Error::NoPermission);
+    }
 
     let open_opts = OpenOptions::new()
         .truncate(false)
@@ -20,24 +21,24 @@ pub fn daemonize() -> Result<()> {
         .write(true)
         .to_owned();
 
-    let workind_directory = if Path::new("/var/run/yarad").exists() {
-        "/var/run/yarad"
+    let working_directory = if Path::new(&conf.working_dir).exists() {
+        &conf.working_dir
     } else {
-        create_dir("/var/run/yarad")?;
-        "/var/run/yarad"
+        create_dir(conf.working_dir)?;
+        &conf.working_dir
     };
 
     let (stdout, stderr, pid_file) = if as_su {
         (
             Some(open_opts.open("/var/log/yarad.out")?),
-            Some(open_opts.open("/var/log/yarad.err")?),
+            Some(open_opts.open("/var/log/yarad.log")?),
             "/var/run/yarad/yarad.pid",
         )
     } else {
         (
             None,
             None,
-            "/var/run/yarad/yarad.pid",
+            "yarad.pid",
         )
     };
 
@@ -47,7 +48,7 @@ pub fn daemonize() -> Result<()> {
         .user(User::Name(username.clone()))
         .pid_file(pid_file)
         .chown_pid_file(false)
-        .working_directory(workind_directory);
+        .working_directory(working_directory);
 
     if stdout.is_some() {
         daemonize.stdout(stdout.unwrap())
