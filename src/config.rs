@@ -35,8 +35,12 @@ impl<'a> TryFrom<&clap::ArgMatches<'a>> for Config {
         let path = args.value_of("config_file").unwrap();
         let config: ConfigFile = serde_yaml::from_str(&read_to_string(path)?)?;
 
-        let log_level = Level::from_str(&config.log_level.unwrap_or("warn".into()))?.as_str().into();
-        let local_socket = config.local_socket.unwrap_or("/var/run/yarad/yarad.ctl".into());
+        let log_level = Level::from_str(&config.log_level.unwrap_or("warn".into()))?
+            .as_str()
+            .into();
+        let local_socket = config
+            .local_socket
+            .unwrap_or("/var/run/yarad/yarad.ctl".into());
         let local_socket_group = config.local_socket_group.unwrap_or("yarad".into());
         let local_socket_mode: u32 = {
             let mut perm = config.local_socket_mode.unwrap_or("0o666".into());
@@ -50,7 +54,7 @@ impl<'a> TryFrom<&clap::ArgMatches<'a>> for Config {
         let user = config.user.unwrap_or("yarad".into());
         let auto_recompile_rules = config.auto_recompile_rules.unwrap_or(true);
 
-        Ok(Config{
+        Ok(Config {
             log_level,
             local_socket,
             local_socket_group,
@@ -58,7 +62,7 @@ impl<'a> TryFrom<&clap::ArgMatches<'a>> for Config {
             rules_dir,
             working_dir,
             user,
-            auto_recompile_rules
+            auto_recompile_rules,
         })
     }
 }

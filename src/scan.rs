@@ -1,8 +1,14 @@
 use walkdir::WalkDir;
-use yara::{Compiler, Rules, Scanner};
+use yara::{Compiler, Rules};
 
 use crate::config::Config;
 use crate::error::*;
+
+#[derive(Debug)]
+pub struct ScanResult {
+    rule: String,
+    file: String,
+}
 
 pub fn compile_rules(conf: &Config) -> Result<Rules> {
     let rule_files = WalkDir::new(&conf.rules_dir)
@@ -18,4 +24,3 @@ pub fn compile_rules(conf: &Config) -> Result<Rules> {
 
     Ok(compiler.compile_rules()?)
 }
-

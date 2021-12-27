@@ -17,4 +17,5 @@ parse_int = "0.5.0"
 serde = {version="1.0.126", features=["derive"] }
 serde_yaml = "0.8.17"
 username = "0.2.0"
+walkdir = "2.3.2"
 yara = "0.6.1"

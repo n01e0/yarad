@@ -1,18 +1,18 @@
-use daemonize::{User, Daemonize};
+use daemonize::{Daemonize, User};
 use log::info;
+use nix::unistd::geteuid;
 use std::fs::{create_dir, OpenOptions};
 use std::path::Path;
-use nix::unistd::geteuid;
 
-use crate::error::{Result, Error};
 use crate::config::Config;
+use crate::error::{Error, Result};
 
 pub fn daemonize(conf: &Config) -> Result<()> {
     let username = &conf.user;
     let as_su = geteuid().is_root();
 
-    if &username[..] == "root"  && !as_su {
-            return Err(Error::NoPermission);
+    if &username[..] == "root" && !as_su {
+        return Err(Error::NoPermission);
     }
 
     let open_opts = OpenOptions::new()
@@ -35,11 +35,7 @@ pub fn daemonize(conf: &Config) -> Result<()> {
             "/var/run/yarad/yarad.pid",
         )
     } else {
-        (
-            None,
-            None,
-            "yarad.pid",
-        )
+        (None, None, "yarad.pid")
     };
 
     open_opts.open(pid_file)?;
@@ -51,7 +47,8 @@ pub fn daemonize(conf: &Config) -> Result<()> {
         .working_directory(working_directory);
 
     if stdout.is_some() {
-        daemonize.stdout(stdout.unwrap())
+        daemonize
+            .stdout(stdout.unwrap())
             .stderr(stderr.unwrap())
             .start()?;
     } else {
