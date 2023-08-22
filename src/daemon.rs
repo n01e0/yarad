@@ -6,7 +6,6 @@ use log::info;
 use nix::unistd::geteuid;
 use std::fs::{create_dir, OpenOptions};
 use std::path::Path;
-use anyhow::Result;
 use tia::Tia;
 use yara::{Rules, Compiler};
 use walkdir::WalkDir;
@@ -16,18 +15,18 @@ use nix::poll::{poll, PollFd, PollFlags};
 use fanotify::high_level::{Fanotify, FanEvent, FanotifyMode};
 use crate::config::Config;
 use crate::error::*;
+use std::sync::{Arc, Mutex};
+use anyhow::Context;
 
 #[derive(Tia)]
 #[tia(rg)]
 pub struct Yarad {
     config: Config,
-    rules: Rules
 }
 
 impl Yarad {
     pub fn new(config: Config) -> Result<Self> {
-        let rules = compile_rules(&config)?;
-        Ok(Self { config, rules })
+        Ok(Self { config })
     }
 
     pub fn daemonize(&self) -> Result<()> {
@@ -79,32 +78,40 @@ impl Yarad {
         Ok(())
     }
 
-    pub async fn run(&mut self) -> Result<()> {
+    pub async fn run(self) -> Result<()> {
+        let mut rules = Arc::new(Mutex::new(compile_rules(&self.config)?));
+
         #[cfg(target_os = "linux")]
         if *self.get_config().get_auto_recompile_rules() && cap_check().is_ok() {
             let rules_dir = self.config.get_rules_dir();
             let fan = Fanotify::new_with_nonblocking(FanotifyMode::CONTENT);
-            fan.add_path(FanEvent::CloseWrite, rules_dir)?;
+            fan.add_path(FanEvent::CloseWrite.into(), rules_dir)?;
+            let realtime_rules = Arc::clone(&rules);
+
 
             tokio::spawn(async move {
                 let mut fds = [PollFd::new(fan.as_raw_fd(), PollFlags::POLLIN)];
                 loop {
                     let poll_num = poll(&mut fds, -1)?;
                     if poll_num > 0 {
-                        let event = fan.read_event()?;
-                        if event.events.contains(&FanEvent::CloseWrite) {
+                        let event = fan.read_event();
+                        if event.iter().any(|e| e.events.contains(&FanEvent::CloseWrite)) {
                             info!("recompiling rules");
-                            let rules = compile_rules(&self.config)?;
-                            self.rules = rules;
+                            let new_rules = compile_rules(&self.config)?;
+                            let mut locked_rules = realtime_rules.lock().map_err(|e| Error::ThreadError{ error: Box::new("Lock failed")})?;
+                            *locked_rules = new_rules;
                         }
                     } else {
-                        return Err(Error::PollingFailed);
+                        return Err::<(), Error>(Error::PollingFailed)
                     }
                 }
-            })
+            }).await??;
         }
 
-        let scanner = self.get_rules();
+        tokio::spawn(async move {
+            // Scan
+            Ok::<(), Error>(())
+        }).await??;
 
         Ok(())
     }
@@ -118,7 +125,7 @@ fn cap_check() -> Result<()> {
             caps::CapSet::Permitted,
             caps::Capability::CAP_SYS_ADMIN
         )? {
-            Err(Error::NoPermission("auto recompile needs CAP_SYS_ADMIN".to_string()));
+            return Err(Error::NoPermission("auto recompile needs CAP_SYS_ADMIN".to_string()))
         }
     }
     Ok(())

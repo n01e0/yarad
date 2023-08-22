@@ -43,6 +43,13 @@ pub enum Error {
     AnyHow(#[from] anyhow::Error),
     #[error("Polling failed")]
     PollingFailed,
+    #[error("OS Error: `{0}`")]
+    OSError(#[from] nix::errno::Errno),
+    #[error("capability check error: `{0}`")]
+    CapsError(#[from] caps::errors::CapsError),
+    #[error("thread error: `{0}`")]
+    ThreadJoinError(#[from] tokio::task::JoinError),
+
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
