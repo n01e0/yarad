@@ -96,7 +96,6 @@ impl Yarad {
                             self.rules = rules;
                         }
                     } else {
-                        error!("polling fanotify failed");
                         return Err(Error::PollingFailed);
                     }
                 }

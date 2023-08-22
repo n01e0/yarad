@@ -41,7 +41,7 @@ pub enum Error {
     ParseLogLevelError,
     #[error(transparent)]
     AnyHow(#[from] anyhow::Error),
-    #[error]
+    #[error("Polling failed")]
     PollingFailed,
 }
 
