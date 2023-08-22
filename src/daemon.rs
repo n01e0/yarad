@@ -10,8 +10,10 @@ use anyhow::Result;
 use tia::Tia;
 use yara::{Rules, Compiler};
 use walkdir::WalkDir;
+#[cfg(target_os = "linux")]
 use nix::poll::{poll, PollFd, PollFlags};
-
+#[cfg(target_os = "linux")]
+use fanotify::high_level::{Fanotify, FanEvent, FanotifyMode};
 use crate::config::Config;
 use crate::error::*;
 
