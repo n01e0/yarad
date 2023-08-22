@@ -1,59 +1,55 @@
-use daemonize::DaemonizeError;
+use daemonize::Error as DaemonizeError;
 use log::ParseLevelError;
-use std::{any::Any, fmt, io};
+use std::{any::Any, io};
 use yara::errors;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
-    IO {
-        reason: String,
-    },
-    Daemonize {
-        reason: String,
-    },
+    #[error("`{0}`")]
+    IO(#[from] io::Error),
+    #[error("`{0}`")]
+    YaraIO(#[from] yara::errors::IoError),
+    #[error("`{0}`")]
+    Daemonize(#[from] DaemonizeError),
+    #[error("Daemon does not running. please start daemon first.")]
     DaemonNotRunning,
+    #[error("Permission denied")]
     NoPermission,
+    #[error("Config file not found")]
     ConfigNotFound,
+    #[error("Config file entries are missing: `{0}`")]
     ConfigLack(&'static str),
+    #[error("Config file parse error: `{reason}`")]
     ConfigParseError {
         reason: String,
     },
+    #[error("Yara rule comile error")]
     CompileError(errors::CompileErrors),
+    #[error("Yara error: `{0}`")]
     Yara(errors::YaraError),
+    #[error("Thread internal error: `{error:?}`")]
     ThreadError {
         error: Box<dyn Any + Send + 'static>,
     },
+    #[error("User name error: `{reason}`")]
     UserNameError {
         reason: String,
     },
+    #[error("Log level parse error")]
     ParseLogLevelError,
+    #[error(transparent)]
+    AnyHow(#[from] anyhow::Error),
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
-
-impl From<io::Error> for Error {
-    fn from(err: io::Error) -> Self {
-        Self::IO {
-            reason: err.to_string(),
-        }
-    }
-}
+pub type Result<T> = core::result::Result<T, Error>;
 
 impl From<username::Error> for Error {
     fn from(err: username::Error) -> Self {
         match err {
-            username::Error::IO(e) => Error::from(e),
+            username::Error::IO(e) => Self::from(e),
             username::Error::Var(e) => Self::UserNameError {
                 reason: format!("{}", e),
             },
-        }
-    }
-}
-
-impl From<DaemonizeError> for Error {
-    fn from(err: DaemonizeError) -> Self {
-        Self::Daemonize {
-            reason: err.to_string(),
         }
     }
 }
@@ -75,9 +71,7 @@ impl From<yara::errors::YaraError> for Error {
 impl From<yara::errors::Error> for Error {
     fn from(err: yara::errors::Error) -> Self {
         match err {
-            yara::errors::Error::Io(e) => Self::IO {
-                reason: format!("{}", e),
-            },
+            yara::errors::Error::Io(e) => Self::YaraIO(e),
             yara::errors::Error::Yara(e) => Self::Yara(e),
             yara::errors::Error::Compile(e) => Self::CompileError(e),
         }
@@ -93,25 +87,5 @@ impl From<ParseLevelError> for Error {
 impl From<Box<dyn Any + Send + 'static>> for Error {
     fn from(error: Box<dyn Any + Send + 'static>) -> Self {
         Self::ThreadError { error }
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use Error::*;
-        match self {
-            IO { reason } => write!(f, "{}", reason),
-            Daemonize { reason } => write!(f, "{}", reason),
-            DaemonNotRunning => write!(f, "The yarad daemon may not be running"),
-            NoPermission => write!(f, "Permission denied"),
-            ConfigNotFound => write!(f, "Config file does not found"),
-            ConfigLack(s) => write!(f, "Wrong config {}", s),
-            ConfigParseError { reason } => write!(f, "Config file parse error by {}", reason),
-            CompileError(e) => write!(f, "Yara rules compiling error by {}", e),
-            Yara(e) => write!(f, "Yara error by {}", e),
-            ThreadError { error: _ } => write!(f, "Error in thread"),
-            UserNameError { reason } => write!(f, "Can't get username by {}", reason),
-            ParseLogLevelError => write!(f, "Can't parse log_level"),
-        }
     }
 }

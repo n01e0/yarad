@@ -6,6 +6,7 @@ use std::thread;
 
 use crate::config::Config;
 use crate::error::*;
+use anyhow::Result;
 
 pub fn handler(mut stream: UnixStream) -> Result<()> {
     let mut buf = [0; 1024];

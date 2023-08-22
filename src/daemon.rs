@@ -1,19 +1,16 @@
+pub mod command;
 use daemonize::{Daemonize, User};
 use log::info;
 use nix::unistd::geteuid;
 use std::fs::{create_dir, OpenOptions};
 use std::path::Path;
+use anyhow::Result;
 
 use crate::config::Config;
-use crate::error::{Error, Result};
 
 pub fn daemonize(conf: &Config) -> Result<()> {
-    let username = &conf.user;
+    let username = conf.get_user();
     let as_su = geteuid().is_root();
-
-    if &username[..] == "root" && !as_su {
-        return Err(Error::NoPermission);
-    }
 
     let open_opts = OpenOptions::new()
         .truncate(false)
@@ -21,11 +18,12 @@ pub fn daemonize(conf: &Config) -> Result<()> {
         .write(true)
         .to_owned();
 
-    let working_directory = if Path::new(&conf.working_dir).exists() {
-        &conf.working_dir
+    let workdir = conf.get_working_dir();
+    let working_directory = if Path::new(workdir).exists() {
+        workdir
     } else {
-        create_dir(&conf.working_dir)?;
-        &conf.working_dir
+        create_dir(workdir)?;
+        workdir
     };
 
     let (stdout, stderr, pid_file) = if as_su {
@@ -41,7 +39,7 @@ pub fn daemonize(conf: &Config) -> Result<()> {
     open_opts.open(pid_file)?;
 
     let daemonize = Daemonize::new()
-        .user(User::Name(username.clone()))
+        .user(User::from(&username[..]))
         .pid_file(pid_file)
         .chown_pid_file(false)
         .working_directory(working_directory);

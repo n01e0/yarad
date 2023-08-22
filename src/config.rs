@@ -1,9 +1,25 @@
-use crate::error;
+use crate::error::*;
+use clap::Parser;
+use tia::Tia;
 use log::Level;
 use serde::Deserialize;
-use std::convert::TryFrom;
 use std::fs::read_to_string;
 use std::str::FromStr;
+
+pub const DEFAULT_CONFIG_PATH: &str = "/etc/yarad/config.yml";
+
+
+#[derive(Debug, Parser, Tia)]
+#[clap(author, version, about, long_about=None)]
+#[tia(rg)]
+pub struct Args {
+    /// config file
+    #[clap(short, long)]
+    config: String,
+    /// without daemonize
+    #[clap(short, long, default_value_t = false, action)]
+    pub(self) no_daemonize: bool,
+}
 
 #[derive(Debug, Deserialize)]
 struct ConfigFile {
@@ -15,44 +31,53 @@ struct ConfigFile {
     working_dir: Option<String>,
     user: Option<String>,
     auto_recompile_rules: Option<bool>,
+    pub(self) daemonize: Option<bool>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Tia, Eq, PartialEq)]
+#[tia(rg)]
 pub struct Config {
-    pub log_level: String,
-    pub local_socket: String,
-    pub local_socket_group: String,
-    pub local_socket_mode: u32,
-    pub rules_dir: String,
-    pub working_dir: String,
-    pub user: String,
-    pub auto_recompile_rules: bool,
+    log_level: String,
+    local_socket: String,
+    local_socket_group: String,
+    local_socket_mode: u32,
+    rules_dir: String,
+    working_dir: String,
+    user: String,
+    auto_recompile_rules: bool,
+    daemonize: bool,
 }
 
-impl<'a> TryFrom<&clap::ArgMatches<'a>> for Config {
-    type Error = error::Error;
-    fn try_from(args: &clap::ArgMatches) -> error::Result<Self> {
-        let path = args.value_of("config_file").unwrap();
-        let config: ConfigFile = serde_yaml::from_str(&read_to_string(path)?)?;
+impl std::convert::TryFrom<String> for Config {
+    type Error = Error;
+    fn try_from(path: String) -> Result<Self> {
+        let config_file: ConfigFile = serde_yaml::from_str(&read_to_string(path)?)?;
 
-        let log_level = Level::from_str(&config.log_level.unwrap_or("warn".into()))?
+        config_file.convert()
+    }
+}
+
+impl ConfigFile {
+    fn convert(self) -> Result<Config> {
+        let log_level = Level::from_str(&self.log_level.unwrap_or("warn".into()))?
             .as_str()
             .into();
-        let local_socket = config
+        let local_socket = self 
             .local_socket
             .unwrap_or("/var/run/yarad/yarad.ctl".into());
-        let local_socket_group = config.local_socket_group.unwrap_or("yarad".into());
+        let local_socket_group = self.local_socket_group.unwrap_or("yarad".into());
         let local_socket_mode: u32 = {
-            let mut perm = config.local_socket_mode.unwrap_or("0o666".into());
+            let mut perm = self.local_socket_mode.unwrap_or("0o666".into());
             if !perm.starts_with("0o") {
                 perm = format!("0o{}", perm);
             }
             parse_int::parse::<u32>(&perm).unwrap_or(0o666)
         };
-        let rules_dir = config.rules_dir.unwrap_or("/var/lib/yarad/rules".into());
-        let working_dir = config.working_dir.unwrap_or("/var/run/yarad".into());
-        let user = config.user.unwrap_or("yarad".into());
-        let auto_recompile_rules = config.auto_recompile_rules.unwrap_or(true);
+        let rules_dir = self.rules_dir.unwrap_or("/var/lib/yarad/rules".into());
+        let working_dir = self.working_dir.unwrap_or("/var/run/yarad".into());
+        let user = self.user.unwrap_or("yarad".into());
+        let auto_recompile_rules = self.auto_recompile_rules.unwrap_or(true);
+        let daemonize = self.daemonize.unwrap_or(true);
 
         Ok(Config {
             log_level,
@@ -63,6 +88,7 @@ impl<'a> TryFrom<&clap::ArgMatches<'a>> for Config {
             working_dir,
             user,
             auto_recompile_rules,
+            daemonize,
         })
     }
 }

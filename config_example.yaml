@@ -7,3 +7,4 @@ rules_dir: /var/lib/yarad/rules
 working_dir: /var/run/yarad
 user: yarad
 auto_recompile_rules: true
+daemonize: false
