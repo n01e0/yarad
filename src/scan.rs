@@ -17,7 +17,7 @@ pub fn compile_rules(conf: &Config) -> Result<Rules> {
         .filter(|f| f.file_type().is_file())
         .collect::<Vec<_>>();
 
-    let compiler = rule_files.into_iter().try_fold(Compiler::new()?, |mut compiler, f| {
+    let compiler = rule_files.into_iter().try_fold(Compiler::new()?, |compiler, f| {
         compiler.add_rules_file(f.path())
     })?;
 

@@ -4,7 +4,7 @@ use yarad::config;
 use yarad::daemon::{self, command::Args};
 use yarad::error::*;
 use yarad::scan;
-use yarad::sock;
+
 
 const DEFAULT_CONFIG_PATH: &str = "/etc/yarad/config.yml";
 
@@ -16,6 +16,6 @@ fn main() -> Result<()> {
         daemon::daemonize(&config).map_err(|e| Error::from(e))?;
     }
     let rules = scan::compile_rules(&config)?;
-    let scanner = rules.scanner()?;
+    let _scanner = rules.scanner()?;
     Ok(())
 }
