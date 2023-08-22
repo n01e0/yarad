@@ -1,6 +1,31 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use tia::Tia;
 use crate::config::DEFAULT_CONFIG_PATH;
+
+#[derive(Debug, ValueEnum, Clone)]
+pub enum Command {
+    /// start daemon
+    #[clap(name = "start")]
+    Start,
+    /// stop daemon
+    #[clap(name = "stop")]
+    Stop,
+    /// restart daemon
+    #[clap(name = "restart")]
+    Restart,
+    /// reload config
+    #[clap(name = "reload")]
+    Reload,
+    /// show status
+    #[clap(name = "status")]
+    Status,
+    /// show rules directory path
+    #[clap(name = "show-rules-dir")]
+    ShowRulesDir,
+    /// show rules name
+    #[clap(name = "show-rules-name")]
+    ShowRulesName,
+}
 
 #[derive(Debug, Parser, Tia)]
 #[clap(author, version, about, long_about = None)]
@@ -12,18 +37,9 @@ pub struct Args {
     /// daemon start
     #[clap(long)]
     foreground: bool,
-    /// check config
-    #[clap(long)]
-    check_config: bool,
-    /// show rules directory path
-    #[clap(long = "show_rules_dir")]
-    show_rules_dir: bool,
-    /// show rules name
-    #[clap(long = "show_rules_name")]
-    show_rules_name: bool,
-    /// start daemon
-    #[clap(long)]
-    start: bool,
+    /// command
+    #[clap(value_enum)]
+    command: Option<Command>,
 }
 
 impl Args {
