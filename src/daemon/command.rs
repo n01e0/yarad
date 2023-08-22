@@ -7,24 +7,15 @@ pub enum Command {
     /// start daemon
     #[clap(name = "start")]
     Start,
-    /// stop daemon
-    #[clap(name = "stop")]
-    Stop,
-    /// restart daemon
-    #[clap(name = "restart")]
-    Restart,
+    /// show daemon pid
+    #[clap(name = "pid")]
+    Pid,
     /// reload config
     #[clap(name = "reload")]
     Reload,
-    /// show status
-    #[clap(name = "status")]
-    Status,
     /// show rules directory path
     #[clap(name = "show-rules-dir")]
     ShowRulesDir,
-    /// show rules name
-    #[clap(name = "show-rules-name")]
-    ShowRulesName,
 }
 
 #[derive(Debug, Parser, Tia)]

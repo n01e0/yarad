@@ -31,7 +31,7 @@ struct ConfigFile {
     working_dir: Option<String>,
     user: Option<String>,
     auto_recompile_rules: Option<bool>,
-    pub(self) daemonize: Option<bool>,
+    pid_file: Option<String>,
 }
 
 #[derive(Debug, Tia, Eq, PartialEq)]
@@ -45,13 +45,19 @@ pub struct Config {
     working_dir: String,
     user: String,
     auto_recompile_rules: bool,
-    daemonize: bool,
+    pid_file: String,
 }
 
 impl std::convert::TryFrom<String> for Config {
     type Error = Error;
     fn try_from(path: String) -> Result<Self> {
-        let config_file: ConfigFile = serde_yaml::from_str(&read_to_string(path)?)?;
+        let content = read_to_string(&path)
+            .map_err(|e| match e.kind() {
+                std::io::ErrorKind::NotFound => Error::ConfigNotFound(path),
+                std::io::ErrorKind::PermissionDenied => Error::ConfigPermissionDenied(path),
+                _ => e.into()
+            })?;
+        let config_file: ConfigFile = serde_yaml::from_str(&content)?;
 
         config_file.convert()
     }
@@ -77,7 +83,7 @@ impl ConfigFile {
         let working_dir = self.working_dir.unwrap_or("/var/run/yarad".into());
         let user = self.user.unwrap_or("yarad".into());
         let auto_recompile_rules = self.auto_recompile_rules.unwrap_or(true);
-        let daemonize = self.daemonize.unwrap_or(true);
+        let pid_file = self.pid_file.unwrap_or("/var/run/yarad/yarad.pid".into());
 
         Ok(Config {
             log_level,
@@ -88,7 +94,7 @@ impl ConfigFile {
             working_dir,
             user,
             auto_recompile_rules,
-            daemonize,
+            pid_file
         })
     }
 }

@@ -31,5 +31,5 @@ auto_recompile_rules: true
 daemonize: true
 """> /etc/yarad/config.yml
 chown yarad:yarad /etc/yarad/config.yml
-chmod 640 /etc/yarad/config.yml
+chmod 644 /etc/yarad/config.yml
 

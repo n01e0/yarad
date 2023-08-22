@@ -21,3 +21,8 @@ tia = "1.0.3"
 username = "0.2.0"
 walkdir = "2.3.3"
 yara = { version="0.20.0", features=["vendored"] }
+tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+fanotify-rs = { git="https://github.com/n01e0/fanotify-rs" }
+caps = "0.5.5"

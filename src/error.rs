@@ -13,10 +13,12 @@ pub enum Error {
     Daemonize(#[from] DaemonizeError),
     #[error("Daemon does not running. please start daemon first.")]
     DaemonNotRunning,
-    #[error("Permission denied")]
-    NoPermission,
-    #[error("Config file not found")]
-    ConfigNotFound,
+    #[error("Permission denied in {0}")]
+    NoPermission(String),
+    #[error("Config file not found: {0}")]
+    ConfigNotFound(String),
+    #[error("Config file permission is not suitable: {0}")]
+    ConfigPermissionDenied(String),
     #[error("Config file entries are missing: `{0}`")]
     ConfigLack(&'static str),
     #[error("Config file parse error: `{reason}`")]
@@ -39,6 +41,8 @@ pub enum Error {
     ParseLogLevelError,
     #[error(transparent)]
     AnyHow(#[from] anyhow::Error),
+    #[error]
+    PollingFailed,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
