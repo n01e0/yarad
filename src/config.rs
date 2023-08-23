@@ -36,7 +36,7 @@ struct ConfigFile {
     pid_file: Option<String>,
 }
 
-#[derive(Debug, Tia, Eq, PartialEq)]
+#[derive(Debug, Tia, Eq, PartialEq, Clone)]
 #[tia(rg)]
 pub struct Config {
     log_level: String,
@@ -52,7 +52,7 @@ pub struct Config {
     pid_file: String,
 }
 
-#[derive(Debug, Eq, PartialEq, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Deserialize, Clone)]
 pub enum StreamType {
     Unix,
     Tcp,

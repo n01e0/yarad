@@ -15,8 +15,7 @@ mkdir -p /var/run/yarad
 mkdir -p /var/lib/yarad/rules
 
 #write CONFIG_TEMPLATE into config.yml
-echo """
-# log level [error|warn|info|debug|trace]
+echo """# log level [error|warn|info|debug|trace]
 log_level: warn
 # socket for communication with yara daemon
 local_socket: /var/run/yarad/yarad.ctl

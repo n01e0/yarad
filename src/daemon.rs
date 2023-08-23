@@ -15,9 +15,10 @@ use nix::poll::{poll, PollFd, PollFlags};
 use fanotify::high_level::{Fanotify, FanEvent, FanotifyMode};
 use crate::config::Config;
 use crate::error::*;
-use crate::sock::{Listener, Stream};
+use crate::sock::Listener;
 use crate::protocol::Command;
-use std::sync::{Arc, Mutex};
+use tokio::sync::Mutex;
+use std::sync::Arc;
 
 #[derive(Tia)]
 #[tia(rg)]
@@ -30,19 +31,22 @@ impl Yarad {
         Ok(Self { config })
     }
 
-    pub async fn run(self) -> Result<()> {
+    pub async fn run(&self) -> Result<()> {
+        let config = Arc::new(Mutex::new(self.config.clone()));
         info!("initial compiling rules");
-        let rules = Arc::new(Mutex::new(compile_rules(&self.config)?));
+        let rules = Arc::new(Mutex::new(compile_rules(&*config.lock().await)?));
         info!("rules compiled");
         info!("yarad started");
 
-        let listener = Listener::new(&self.config).await?;
+        let listener = Listener::new(&*config.lock().await).await?;
         let stream = listener.accept().await?;
 
         #[cfg(target_os = "linux")]
-        if *self.get_config().get_auto_recompile_rules() && cap_check().is_ok() {
+        if *config.lock().await.get_auto_recompile_rules() && cap_check().is_ok() {
             info!("auto recompile enabled");
-            let rules_dir = self.config.get_rules_dir();
+            let config_for_thread = Arc::clone(&config);
+            let config = config.lock().await;
+            let rules_dir = config.get_rules_dir();
             let fan = Fanotify::new_with_nonblocking(FanotifyMode::CONTENT);
             fan.add_path(FanEvent::CloseWrite.into(), rules_dir)?;
             let realtime_rules = Arc::clone(&rules);
@@ -56,8 +60,9 @@ impl Yarad {
                         let event = fan.read_event();
                         if event.iter().any(|e| e.events.contains(&FanEvent::CloseWrite)) {
                             info!("recompiling rules");
-                            let new_rules = compile_rules(&self.config)?;
-                            let mut locked_rules = realtime_rules.lock().map_err(|e| Error::ThreadError{ error: Box::new(format!("Lock failed: {:?}", e))})?;
+                            let config = config_for_thread.lock().await;
+                            let new_rules = compile_rules(&*config)?;
+                            let mut locked_rules = realtime_rules.lock().await;
                             *locked_rules = new_rules;
                             info!("recompilation done");
                         }
@@ -71,10 +76,12 @@ impl Yarad {
             auto_recompile_thread?;
         }
 
+        info!("starting main loop");
         let main_loop: Result<()> = tokio::spawn(async move {
             loop {
                 stream.readable().await?;
                 let commands = stream.try_parse_commands()?;
+                info!("received {} commands", commands.len());
                 for command in commands {
                     if let Err(Error::InvalidCommand(e)) = command {
                         let message = format!("Invalid command: {}", e);
@@ -91,6 +98,15 @@ impl Yarad {
                             info!("Received version");
                             stream.try_write(b"yarad 0.1.0")?;
                         },
+                        Command::Reload => {
+                            info!("recompiling rules");
+                            let config = config.lock().await;
+                            let new_rules = compile_rules(&*config)?;
+                            let mut locked_rules = rules.lock().await;
+                            *locked_rules = new_rules;
+                            info!("recompilation done");
+
+                        }
                         _ => Err(Error::InvalidCommand("Invalid command".to_string()))?,
                     }
                 }
