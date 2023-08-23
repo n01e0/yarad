@@ -2,7 +2,7 @@ pub mod command;
 pub mod rule;
 
 use daemonize::{Daemonize, User};
-use log::info;
+use log::{info, warn, error};
 use nix::unistd::geteuid;
 use std::fs::{create_dir, OpenOptions};
 use std::path::Path;
@@ -15,8 +15,9 @@ use nix::poll::{poll, PollFd, PollFlags};
 use fanotify::high_level::{Fanotify, FanEvent, FanotifyMode};
 use crate::config::Config;
 use crate::error::*;
+use crate::sock::{Listener, Stream};
+use crate::protocol::Command;
 use std::sync::{Arc, Mutex};
-use anyhow::Context;
 
 #[derive(Tia)]
 #[tia(rg)]
@@ -27,6 +28,77 @@ pub struct Yarad {
 impl Yarad {
     pub fn new(config: Config) -> Result<Self> {
         Ok(Self { config })
+    }
+
+    pub async fn run(self) -> Result<()> {
+        info!("initial compiling rules");
+        let rules = Arc::new(Mutex::new(compile_rules(&self.config)?));
+        info!("rules compiled");
+        info!("yarad started");
+
+        let listener = Listener::new(&self.config).await?;
+        let stream = listener.accept().await?;
+
+        #[cfg(target_os = "linux")]
+        if *self.get_config().get_auto_recompile_rules() && cap_check().is_ok() {
+            info!("auto recompile enabled");
+            let rules_dir = self.config.get_rules_dir();
+            let fan = Fanotify::new_with_nonblocking(FanotifyMode::CONTENT);
+            fan.add_path(FanEvent::CloseWrite.into(), rules_dir)?;
+            let realtime_rules = Arc::clone(&rules);
+
+            let auto_recompile_thread: Result<()> = tokio::spawn(async move {
+                let mut fds = [PollFd::new(fan.as_raw_fd(), PollFlags::POLLIN)];
+                info!("starting recopile thread");
+                loop {
+                    let poll_num = poll(&mut fds, -1)?;
+                    if poll_num > 0 {
+                        let event = fan.read_event();
+                        if event.iter().any(|e| e.events.contains(&FanEvent::CloseWrite)) {
+                            info!("recompiling rules");
+                            let new_rules = compile_rules(&self.config)?;
+                            let mut locked_rules = realtime_rules.lock().map_err(|e| Error::ThreadError{ error: Box::new(format!("Lock failed: {:?}", e))})?;
+                            *locked_rules = new_rules;
+                            info!("recompilation done");
+                        }
+                    } else {
+                        error!("polling failed");
+                        return Err(Error::PollingFailed)
+                    }
+                }
+            }).await?;
+
+            auto_recompile_thread?;
+        }
+
+        let main_loop: Result<()> = tokio::spawn(async move {
+            loop {
+                stream.readable().await?;
+                let commands = stream.try_parse_commands()?;
+                for command in commands {
+                    if let Err(Error::InvalidCommand(e)) = command {
+                        let message = format!("Invalid command: {}", e);
+                        warn!("Received {}", message);
+                        stream.try_write(&message.as_bytes())?;
+                        continue;
+                    }
+                    match command? {
+                        Command::Ping => {
+                            info!("Received ping");
+                            stream.try_write(b"PONG")?;
+                        },
+                        Command::Version => {
+                            info!("Received version");
+                            stream.try_write(b"yarad 0.1.0")?;
+                        },
+                        _ => Err(Error::InvalidCommand("Invalid command".to_string()))?,
+                    }
+                }
+            }
+        }).await?;
+
+        main_loop?;
+        Ok(())
     }
 
     pub fn daemonize(&self) -> Result<()> {
@@ -75,44 +147,6 @@ impl Yarad {
         }
     
         info!("yarad started by {}", username);
-        Ok(())
-    }
-
-    pub async fn run(self) -> Result<()> {
-        let mut rules = Arc::new(Mutex::new(compile_rules(&self.config)?));
-
-        #[cfg(target_os = "linux")]
-        if *self.get_config().get_auto_recompile_rules() && cap_check().is_ok() {
-            let rules_dir = self.config.get_rules_dir();
-            let fan = Fanotify::new_with_nonblocking(FanotifyMode::CONTENT);
-            fan.add_path(FanEvent::CloseWrite.into(), rules_dir)?;
-            let realtime_rules = Arc::clone(&rules);
-
-
-            tokio::spawn(async move {
-                let mut fds = [PollFd::new(fan.as_raw_fd(), PollFlags::POLLIN)];
-                loop {
-                    let poll_num = poll(&mut fds, -1)?;
-                    if poll_num > 0 {
-                        let event = fan.read_event();
-                        if event.iter().any(|e| e.events.contains(&FanEvent::CloseWrite)) {
-                            info!("recompiling rules");
-                            let new_rules = compile_rules(&self.config)?;
-                            let mut locked_rules = realtime_rules.lock().map_err(|e| Error::ThreadError{ error: Box::new("Lock failed")})?;
-                            *locked_rules = new_rules;
-                        }
-                    } else {
-                        return Err::<(), Error>(Error::PollingFailed)
-                    }
-                }
-            }).await??;
-        }
-
-        tokio::spawn(async move {
-            // Scan
-            Ok::<(), Error>(())
-        }).await??;
-
         Ok(())
     }
 }

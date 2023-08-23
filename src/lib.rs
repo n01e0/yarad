@@ -5,3 +5,4 @@ pub mod log;
 pub mod scan;
 pub mod sock;
 pub mod command;
+pub mod protocol;

@@ -24,9 +24,11 @@ pub struct Args {
 #[derive(Debug, Deserialize)]
 struct ConfigFile {
     log_level: Option<String>,
+    stream_type: Option<StreamType>,
     local_socket: Option<String>,
     local_socket_group: Option<String>,
     local_socket_mode: Option<String>,
+    tcp_port: Option<u16>,
     rules_dir: Option<String>,
     working_dir: Option<String>,
     user: Option<String>,
@@ -38,14 +40,22 @@ struct ConfigFile {
 #[tia(rg)]
 pub struct Config {
     log_level: String,
+    stream_type: StreamType,
     local_socket: String,
     local_socket_group: String,
     local_socket_mode: u32,
+    tcp_port: u16,
     rules_dir: String,
     working_dir: String,
     user: String,
     auto_recompile_rules: bool,
     pid_file: String,
+}
+
+#[derive(Debug, Eq, PartialEq, Deserialize)]
+pub enum StreamType {
+    Unix,
+    Tcp,
 }
 
 impl std::convert::TryFrom<String> for Config {
@@ -84,17 +94,21 @@ impl ConfigFile {
         let user = self.user.unwrap_or("yarad".into());
         let auto_recompile_rules = self.auto_recompile_rules.unwrap_or(true);
         let pid_file = self.pid_file.unwrap_or("/var/run/yarad/yarad.pid".into());
+        let stream_type = self.stream_type.unwrap_or(StreamType::Unix);
+        let tcp_port = self.tcp_port.unwrap_or(0);
 
         Ok(Config {
             log_level,
+            stream_type,
             local_socket,
             local_socket_group,
             local_socket_mode,
+            tcp_port,
             rules_dir,
             working_dir,
             user,
             auto_recompile_rules,
-            pid_file
+            pid_file,
         })
     }
 }

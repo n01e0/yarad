@@ -49,7 +49,10 @@ pub enum Error {
     CapsError(#[from] caps::errors::CapsError),
     #[error("thread error: `{0}`")]
     ThreadJoinError(#[from] tokio::task::JoinError),
-
+    #[error("Invalid command: `{0}`")]
+    InvalidCommand(String),
+    #[error("From Utf8 Error: `{0}`")]
+    FromUtf8Error(#[from] std::string::FromUtf8Error),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
