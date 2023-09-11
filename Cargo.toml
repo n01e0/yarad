@@ -19,7 +19,7 @@ serde_yaml = "0.9.25"
 thiserror = "1.0.48"
 tia = "1.0.3"
 username = "0.2.0"
-walkdir = "2.3.3"
+walkdir = "2.4.0"
 yara = { version="0.20.0", features=["vendored"] }
 tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread", "net", "io-util", "sync"] }
 
