@@ -19,6 +19,7 @@ use crate::sock::Listener;
 use crate::protocol::Command;
 use tokio::sync::Mutex;
 use std::sync::Arc;
+use std::os::fd::BorrowedFd;
 
 #[derive(Tia)]
 #[tia(rg)]
@@ -45,14 +46,15 @@ impl Yarad {
         if *config.lock().await.get_auto_recompile_rules() && cap_check().is_ok() {
             info!("auto recompile enabled");
             let config_for_thread = Arc::clone(&config);
-            let config = config.lock().await;
-            let rules_dir = config.get_rules_dir();
-            let fan = Fanotify::new_with_nonblocking(FanotifyMode::CONTENT);
-            fan.add_path(FanEvent::CloseWrite.into(), rules_dir)?;
+            let rules_dir = config.lock().await.get_rules_dir();
             let realtime_rules = Arc::clone(&rules);
 
             let auto_recompile_thread: Result<()> = tokio::spawn(async move {
-                let mut fds = [PollFd::new(fan.as_raw_fd(), PollFlags::POLLIN)];
+                let fan = Fanotify::new_with_nonblocking(FanotifyMode::CONTENT);
+                fan.add_path(FanEvent::CloseWrite.into(), &rules_dir.clone())?;
+                let fd = BorrowedFd::from(&fan);
+                let mut fds = [PollFd::new(&fd, PollFlags::POLLIN)];
+                let config = 
                 info!("starting recopile thread");
                 loop {
                     let poll_num = poll(&mut fds, -1)?;
