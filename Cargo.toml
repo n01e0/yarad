@@ -7,7 +7,7 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0.66"
-clap = { version="4.4.2", features=["derive"] }
+clap = { version="4.4.3", features=["derive"] }
 daemonize = "0.5.0"
 env_logger = "0.10.0"
 libc = "0.2.148"
@@ -19,8 +19,8 @@ serde_yaml = "0.9.25"
 thiserror = "1.0.48"
 tia = "1.0.3"
 username = "0.2.0"
-walkdir = "2.3.3"
-yara = { version="0.20.0", features=["vendored"] }
+walkdir = "2.4.0"
+yara = { version="0.21.0", features=["vendored"] }
 tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread", "net", "io-util", "sync"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
