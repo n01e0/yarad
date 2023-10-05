@@ -7,7 +7,7 @@ fi
 
 #create user
 useradd -r -s /sbin/nologin yarad
-groupadd yarad
+groupadd -f yarad
 
 #create directories
 mkdir -p /etc/yarad

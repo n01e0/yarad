@@ -34,6 +34,7 @@ struct ConfigFile {
     user: Option<String>,
     auto_recompile_rules: Option<bool>,
     pid_file: Option<String>,
+    scan_timeout: Option<i32>,
 }
 
 #[derive(Debug, Tia, Eq, PartialEq, Clone)]
@@ -50,6 +51,7 @@ pub struct Config {
     user: String,
     auto_recompile_rules: bool,
     pid_file: String,
+    scan_timeout: i32,
 }
 
 #[derive(Debug, Eq, PartialEq, Deserialize, Clone)]
@@ -96,6 +98,7 @@ impl ConfigFile {
         let pid_file = self.pid_file.unwrap_or("/var/run/yarad/yarad.pid".into());
         let stream_type = self.stream_type.unwrap_or(StreamType::Unix);
         let tcp_port = self.tcp_port.unwrap_or(0);
+        let scan_timeout = self.scan_timeout.unwrap_or(5);
 
         Ok(Config {
             log_level,
@@ -109,6 +112,7 @@ impl ConfigFile {
             user,
             auto_recompile_rules,
             pid_file,
+            scan_timeout
         })
     }
 }

@@ -5,10 +5,12 @@ use tokio::net::{
     TcpStream,
 };
 use std::path::Path;
-
+use std::os::unix::fs::PermissionsExt;
+use std::fs::Permissions;
 use crate::config::{Config, StreamType};
 use crate::error::*;
 use crate::protocol::*;
+use log::info;
 
 const BUFFER_SIZE: usize = 4096;
 
@@ -27,7 +29,10 @@ impl Listener {
                     if Path::new(socket_path).exists() {
                         std::fs::remove_file(socket_path)?;
                     }
-                    Listener::Unix(UnixListener::bind(socket_path)?)
+                    let listener = Listener::Unix(UnixListener::bind(socket_path)?);
+                    tokio::fs::set_permissions(socket_path, Permissions::from_mode(*config.get_local_socket_mode())).await?;
+                    info!("Listening on {}, perm {:#o}", socket_path, *config.get_local_socket_mode());
+                    listener
 
                 },
                 StreamType::Tcp => {

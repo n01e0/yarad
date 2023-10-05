@@ -53,6 +53,8 @@ pub enum Error {
     InvalidCommand(String),
     #[error("From Utf8 Error: `{0}`")]
     FromUtf8Error(#[from] std::string::FromUtf8Error),
+    #[error("Invalid Path: `{0}`")]
+    InvalidPath(String),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;

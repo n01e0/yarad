@@ -1,14 +1,16 @@
+use yara::Rule;
+
 #[derive(Debug)]
 pub struct ScanResult {
-    rule: String,
-    file: String,
+    pub rule: Vec<String>,
+    pub path: String,
 }
 
 impl ScanResult {
-    pub fn new<S: Into<String>>(rule: S, file: S) -> Self {
+    pub fn new(rule: Vec<Rule>, path: String) -> Self {
         ScanResult {
-            rule: rule.into(),
-            file: file.into()
+            rule: rule.into_iter().map(|x| x.identifier.to_string()).collect(),
+            path
         }
     }
 }
