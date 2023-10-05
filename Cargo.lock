@@ -250,26 +250,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "enum-iterator"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c79a6321a1197d7730510c7e3f6cb80432dfefecb32426de8cea0aa19b4bb8d7"
-dependencies = [
- "enum-iterator-derive",
-]
-
-[[package]]
-name = "enum-iterator-derive"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e94aa31f7c0dc764f57896dc615ddd76fc13b0d5dca7eb6cc5e018a5a09ec06"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "env_logger"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -311,12 +291,10 @@ dependencies = [
 
 [[package]]
 name = "fanotify-rs"
-version = "0.3.0"
-source = "git+https://github.com/n01e0/fanotify-rs#2403fd26007aa1d38676dedf2ca80c9415b43828"
+version = "0.4.1"
+source = "git+https://github.com/n01e0/fanotify-rs#52c5f9ec6859c852270596a69ffc60d12a841cab"
 dependencies = [
- "enum-iterator",
  "libc",
- "once_cell",
 ]
 
 [[package]]
