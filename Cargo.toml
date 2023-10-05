@@ -16,7 +16,7 @@ nix = "0.26.2"
 parse_int = "0.6.0"
 serde = { version="1.0.188", features=["derive"] }
 serde_yaml = "0.9.25"
-thiserror = "1.0.48"
+thiserror = "1.0.49"
 tia = "1.0.3"
 username = "0.2.0"
 walkdir = "2.4.0"
