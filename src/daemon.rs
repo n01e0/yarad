@@ -16,7 +16,6 @@ use crate::scan::ScanResult;
 use crate::protocol::Command;
 use tokio::sync::Mutex;
 use std::sync::Arc;
-use std::os::fd::BorrowedFd;
 
 #[derive(Tia)]
 #[tia(rg)]
