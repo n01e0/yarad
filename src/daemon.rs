@@ -9,13 +9,10 @@ use std::path::Path;
 use tia::Tia;
 use yara::{Rules, Compiler};
 use walkdir::WalkDir;
-#[cfg(target_os = "linux")]
-use nix::poll::{poll, PollFd, PollFlags};
-#[cfg(target_os = "linux")]
-use fanotify::high_level::{Fanotify, FanEvent, FanotifyMode};
 use crate::config::Config;
 use crate::error::*;
 use crate::sock::Listener;
+use crate::scan::ScanResult;
 use crate::protocol::Command;
 use tokio::sync::Mutex;
 use std::sync::Arc;
@@ -25,62 +22,54 @@ use std::os::fd::BorrowedFd;
 #[tia(rg)]
 pub struct Yarad {
     config: Config,
+    rules: Arc<Mutex<Rules>>,
 }
 
 impl Yarad {
     pub fn new(config: Config) -> Result<Self> {
-        Ok(Self { config })
+        let rules_dir = config.get_rules_dir().to_string();
+        Ok(Self {
+            config,
+            rules: Arc::new(Mutex::new(compile_rules(&rules_dir)?)),
+        })
     }
 
-    pub async fn run(&self) -> Result<()> {
+    async fn scan(&self, path: String) -> Result<Vec<ScanResult>> {
+        let mut results = Vec::new();
+        let rules = self.rules.lock().await;
+        
+        let target = Path::new(&path);
+        if target.is_dir() {
+            for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
+                if entry.file_type().is_file() {
+                    let matches = rules.scan_file(entry.path(), *self.config.get_scan_timeout())?;
+                    results.push(ScanResult::new(matches, format!("{}", entry.path().display())));
+                }
+            }
+        } else if target.is_file() {
+            let matches = rules.scan_file(&path, *self.config.get_scan_timeout())?;
+            if matches.is_empty() {
+                results.push(ScanResult{rule: vec!["OK".to_string()], path});
+            } else {
+                results.push(ScanResult::new(matches, path));
+            }
+        } else {
+            return Err(Error::InvalidPath(path));
+        }
+
+        Ok(results)
+    }
+
+    pub async fn run(self) -> Result<()> {
         let config = Arc::new(Mutex::new(self.config.clone()));
-        info!("initial compiling rules");
-        let rules = Arc::new(Mutex::new(compile_rules(&*config.lock().await)?));
-        info!("rules compiled");
         info!("yarad started");
 
         let listener = Listener::new(&*config.lock().await).await?;
-        let stream = listener.accept().await?;
-
-        #[cfg(target_os = "linux")]
-        if *config.lock().await.get_auto_recompile_rules() && cap_check().is_ok() {
-            info!("auto recompile enabled");
-            let config_for_thread = Arc::clone(&config);
-            let rules_dir = config.lock().await.get_rules_dir();
-            let realtime_rules = Arc::clone(&rules);
-
-            let auto_recompile_thread: Result<()> = tokio::spawn(async move {
-                let fan = Fanotify::new_with_nonblocking(FanotifyMode::CONTENT);
-                fan.add_path(FanEvent::CloseWrite.into(), &rules_dir.clone())?;
-                let fd = BorrowedFd::from(&fan);
-                let mut fds = [PollFd::new(&fd, PollFlags::POLLIN)];
-                let config = 
-                info!("starting recopile thread");
-                loop {
-                    let poll_num = poll(&mut fds, -1)?;
-                    if poll_num > 0 {
-                        let event = fan.read_event();
-                        if event.iter().any(|e| e.events.contains(&FanEvent::CloseWrite)) {
-                            info!("recompiling rules");
-                            let config = config_for_thread.lock().await;
-                            let new_rules = compile_rules(&*config)?;
-                            let mut locked_rules = realtime_rules.lock().await;
-                            *locked_rules = new_rules;
-                            info!("recompilation done");
-                        }
-                    } else {
-                        error!("polling failed");
-                        return Err(Error::PollingFailed)
-                    }
-                }
-            }).await?;
-
-            auto_recompile_thread?;
-        }
 
         info!("starting main loop");
         let main_loop: Result<()> = tokio::spawn(async move {
             loop {
+                let stream = listener.accept().await?;
                 stream.readable().await?;
                 let commands = stream.try_parse_commands()?;
                 info!("received {} commands", commands.len());
@@ -88,7 +77,7 @@ impl Yarad {
                     if let Err(Error::InvalidCommand(e)) = command {
                         let message = format!("Invalid command: {}", e);
                         warn!("Received {}", message);
-                        stream.try_write(&message.as_bytes())?;
+                        stream.try_write(message.as_bytes())?;
                         continue;
                     }
                     match command? {
@@ -103,12 +92,32 @@ impl Yarad {
                         Command::Reload => {
                             info!("recompiling rules");
                             let config = config.lock().await;
-                            let new_rules = compile_rules(&*config)?;
-                            let mut locked_rules = rules.lock().await;
+                            let rules_dir = config.get_rules_dir();
+                            let new_rules = compile_rules(rules_dir)?;
+                            let mut locked_rules = self.rules.lock().await;
                             *locked_rules = new_rules;
                             info!("recompilation done");
 
                         }
+                        Command::Scan(path) => {
+                            info!("Received scan request for {}", path);
+                            match self.scan(path).await {
+                                Ok(results) => {
+                                    for result in results {
+                                        for rule in result.rule {
+                                            info!("{}: {}", rule, result.path);
+                                            let message = format!("{}: {}\n", rule, result.path);
+                                            stream.try_write(message.as_bytes())?;
+                                        }
+                                    }
+                                },
+                                Err(e) => {
+                                    error!("Error while scanning: {}", e);
+                                    stream.try_write(format!("Error while scanning: {}\n", e).as_bytes())?;
+                                }
+
+                            }
+                        },
                         _ => Err(Error::InvalidCommand("Invalid command".to_string()))?,
                     }
                 }
@@ -169,24 +178,11 @@ impl Yarad {
     }
 }
 
-fn cap_check() -> Result<()> {
-    #[cfg(target_os = "linux")]
-    {
-        if !caps::has_cap(
-            None,
-            caps::CapSet::Permitted,
-            caps::Capability::CAP_SYS_ADMIN
-        )? {
-            return Err(Error::NoPermission("auto recompile needs CAP_SYS_ADMIN".to_string()))
-        }
-    }
-    Ok(())
-}
-
-fn compile_rules(conf: &Config) -> Result<Rules> {
-    let rule_files = WalkDir::new(conf.get_rules_dir())
+fn compile_rules(rules_dir: &str) -> Result<Rules> {
+    let rule_files = WalkDir::new(rules_dir)
         .into_iter()
         .filter_map(|f| f.ok())
+        .filter(|f| f.path().extension().unwrap_or_default() == "yar" || f.path().extension().unwrap_or_default() == "yara")
         .filter(|f| f.file_type().is_file())
         .collect::<Vec<_>>();
 
