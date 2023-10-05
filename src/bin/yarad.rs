@@ -21,14 +21,26 @@ async fn main() -> Result<()> {
         match command {
             Command::Start => {
                 info!("Starting yarad");
-                let daemon = Yarad::new(config)?;
-                if !*args.get_foreground() {
-                    info!("Starting daemon");
-                    daemon.daemonize()?;
-                }
+                let mut daemonized = false;
                 loop {
-                    if let Err(e) = daemon.run().await {
-                        error!("Error: {}", e);
+                    let yarad = Yarad::new(config.clone())?;
+                    if !*args.get_foreground() && !daemonized {
+                        info!("Starting daemon");
+                        yarad.daemonize()?;
+                        daemonized = true;
+                    }
+                    match yarad.run().await {
+                        Ok(_) => {
+                            info!("yarad exited");
+                            break;
+                        }
+                        Err(Error::CompileError(e)) => {
+                            error!("Compile error: {}", e);
+                            break;
+                        }
+                        Err(e) => {
+                            error!("Error: {}", e);
+                        }
                     }
                 }
             }

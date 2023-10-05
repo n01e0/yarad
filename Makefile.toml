@@ -5,7 +5,7 @@ args = ["check", "--all-targets"]
 
 [tasks.build]
 command = "cargo"
-args = ["build", "--release"]
+args = ["build", "--release", "--all-targets"]
 
 [tasks.audit]
 command = "cargo"
