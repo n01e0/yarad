@@ -14,7 +14,7 @@ libc = "0.2.149"
 log = "0.4.20"
 nix = { version="0.27.1", features=["user", "poll"] }
 parse_int = "0.6.0"
-serde = { version="1.0.189", features=["derive"] }
+serde = { version="1.0.192", features=["derive"] }
 serde_yaml = "0.9.25"
 thiserror = "1.0.50"
 tia = "1.0.3"
