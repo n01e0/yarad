@@ -20,7 +20,7 @@ thiserror = "1.0.50"
 tia = "1.0.3"
 username = "0.2.0"
 walkdir = "2.4.0"
-yara = { version="0.23.0", features=["vendored"] }
+yara = { version="0.24.0", features=["vendored"] }
 tokio = { version = "1.35.1", features = ["macros", "rt-multi-thread", "net", "io-util", "sync", "fs"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
