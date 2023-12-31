@@ -10,7 +10,7 @@ anyhow = "1.0.66"
 clap = { version="4.4.8", features=["derive"] }
 daemonize = "0.5.0"
 env_logger = "0.10.1"
-libc = "0.2.149"
+libc = "0.2.151"
 log = "0.4.20"
 nix = { version="0.27.1", features=["user", "poll"] }
 parse_int = "0.6.0"
