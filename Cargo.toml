@@ -16,7 +16,7 @@ nix = { version="0.27.1", features=["user", "poll"] }
 parse_int = "0.6.0"
 serde = { version="1.0.193", features=["derive"] }
 serde_yaml = "0.9.27"
-thiserror = "1.0.50"
+thiserror = "1.0.56"
 tia = "1.0.3"
 username = "0.2.0"
 walkdir = "2.4.0"
